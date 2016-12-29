@@ -11,7 +11,7 @@ object Hello extends App {
   import JsonCodecs._
 
   val plan = unfiltered.filter.Planify {
-    case Path(Seg(Nil))             => ResponseString("Hello")
+//    case Path(Seg(Nil))             => ResponseString("Hello")
     case Path(Seg("pluss" :: Nil))  =>
       ResponseString(GenererMatteStykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
   }
@@ -20,7 +20,7 @@ object Hello extends App {
 
   unfiltered.jetty.Server
     .http(port)
-    .resources(this.getClass.getResource("/"))
+    .resources(this.getClass.getResource("/elm/"))
     .plan(plan)
     .run()
 }

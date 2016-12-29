@@ -16,8 +16,10 @@ object Hello extends App {
       ResponseString(GenererMatteStykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
   }
 
+  val port: Int = Option(System.getenv("ANANAS_PORT")).map(_.toInt).getOrElse(1337)
+
   unfiltered.jetty.Server
-    .local(1337)
+    .http(port)
     .resources(this.getClass.getResource("/"))
     .plan(plan)
     .run()

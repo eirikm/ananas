@@ -81,20 +81,17 @@
                 </executions>
             </plugin>
 -->
-
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>1.5.0</version>
+                <artifactId>appassembler-maven-plugin</artifactId>
+                <version>1.10</version>
                 <configuration>
-                    <executable>java</executable>
-                    <arguments>
-                        <argument>-classpath</argument>
-                        <!-- automatically creates the classpath using all project dependencies,
-                             also adding the project build directory -->
-                        <classpath/>
-                        <argument>Hello</argument>
-                    </arguments>
+                    <programs>
+                        <program>
+                            <mainClass>Hello</mainClass>
+                            <id>ananas</id>
+                        </program>
+                    </programs>
                 </configuration>
             </plugin>
         </plugins>

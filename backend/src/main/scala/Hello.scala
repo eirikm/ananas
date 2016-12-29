@@ -2,8 +2,8 @@ import unfiltered.request._
 import unfiltered.response._
 
 import scala.util.Random
-
-import io.circe._, io.circe.generic.semiauto._
+import io.circe._
+import io.circe.generic.semiauto._
 import io.circe.syntax._
 
 
@@ -11,11 +11,16 @@ object Hello extends App {
   import JsonCodecs._
 
   val plan = unfiltered.filter.Planify {
-    case Path(Seg(Nil))             => ResponseString("Hello")
-    case Path(Seg("pluss" :: Nil))  => ResponseString(GenererMatteStykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
+//    case Path(Seg(Nil))             => ResponseString("Hello")
+    case Path(Seg("pluss" :: Nil))  =>
+      ResponseString(GenererMatteStykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
   }
 
-  unfiltered.jetty.Server.local(1337).plan(plan).run()
+  unfiltered.jetty.Server
+    .local(1337)
+    .resources(this.getClass.getResource("/"))
+    .plan(plan)
+    .run()
 }
 
 object GenererMatteStykker extends App {

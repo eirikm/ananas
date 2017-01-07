@@ -60,27 +60,7 @@
                 </executions>
             </plugin>
 
-            <!-- build Elm -->
-<!--
-            <plugin>
-                <groupId>nl.stil4m</groupId>
-                <artifactId>elm-maven-plugin</artifactId>
-                <version>1.0.5</version>
-                <executions>
-                    <execution>
-                        <id>Make Elm Source</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>make</goal>
-                        </goals>
-                        <configuration>
-                            <inputFile>src/main/elm/App.elm</inputFile>
-                            <outputFile>generated/main.js</outputFile>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
--->
+            <!-- lage executable for heroku -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>appassembler-maven-plugin</artifactId>

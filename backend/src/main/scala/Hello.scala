@@ -8,12 +8,14 @@ import io.circe.syntax._
 
 
 object Hello extends App {
+
   import JsonCodecs._
 
   val plan = unfiltered.filter.Planify {
-//    case Path(Seg(Nil))             => ResponseString("Hello")
-    case Path(Seg("pluss" :: Nil))  =>
-      ResponseString(GenererMattestykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
+    //    case Path(Seg(Nil))             => ResponseString("Hello")
+    case Path(Seg("pluss" :: Nil)) =>
+      Ok ~> ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
+        ResponseString(GenererMattestykker.genererRegnestykke(vanskelighetsGrad = 1).asJson.spaces2)
   }
 
   val port: Int = Option(System.getenv("ANANAS_PORT")).map(_.toInt).getOrElse(1337)
@@ -36,6 +38,7 @@ object GenererMattestykker extends App {
   val regnestykke = genererRegnestykke(0)
 
   import JsonCodecs._
+
   println(regnestykke.asJson)
 }
 

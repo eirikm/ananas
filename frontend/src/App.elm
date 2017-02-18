@@ -1,34 +1,65 @@
 module App exposing (..)
 
-import Html exposing (Html, text, div, img)
-import Html.Attributes exposing (src)
+import Html exposing (Html, button, div, h1, img, input, text)
+import Html.Events exposing (onClick, onInput)
 
 
 type alias Model =
-    { message : String
-    , logo : String
+    { username : String
+    , usernameSubmitted : Bool
     }
 
 
 init : String -> ( Model, Cmd Msg )
 init path =
-    ( { message = "Your Elm App is working!", logo = path }, Cmd.none )
+    { username = ""
+    , usernameSubmitted = False
+    }
+        ! []
 
 
 type Msg
     = NoOp
+    | UsernameChanged String
+    | UsernameSubmitted
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
+        UsernameChanged username ->
+            { model | username = username } ! []
+
+        UsernameSubmitted ->
+            { model | usernameSubmitted = True } ! []
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ img [ src model.logo ] []
-        , div [] [ text model.message ]
+        [ h1 [] [ text "Ananas" ]
+        , if model.usernameSubmitted then
+            viewMattestykke model
+          else
+            viewInnlogging model
+        ]
+
+
+viewMattestykke : Model -> Html Msg
+viewMattestykke model =
+    div []
+        [ text ("Velkommen, " ++ model.username ++ "!") ]
+
+
+viewInnlogging : Model -> Html Msg
+viewInnlogging model =
+    div []
+        [ text "Navn"
+        , input [ onInput UsernameChanged ] []
+        , button [ onClick UsernameSubmitted ] [ text "OK" ]
         ]
 
 

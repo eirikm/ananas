@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>no.teigmeland</groupId>
+    <artifactId>ananas</artifactId>
+
+    <description>Backend for ananas</description>
+    <name>ananas-parent</name>
+    <packaging>pom</packaging>
+    <version>1.0-SNAPSHOT</version>
+
+    <modules>
+        <module>backend</module>
+    </modules>
+
+    <scm>
+        <developerConnection>scm:git:git@github.com:eirikm/ananas.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+</project>

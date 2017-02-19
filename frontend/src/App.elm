@@ -16,6 +16,7 @@ type alias Model =
     , forrigeRegnestykke : Maybe BesvartRegnestykke
     , regnestykke : RemoteData String Regnestykke
     , riktigePåRad : Int
+    , highscore : Int
     , svar : String
     }
 
@@ -34,6 +35,7 @@ init path =
     , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
     , riktigePåRad = 0
+    , highscore = 0
     , svar = ""
     }
         ! []
@@ -46,6 +48,7 @@ mockInit path =
     , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
     , riktigePåRad = 0
+    , highscore = 0
     , svar = ""
     }
         ! [ hentRegnestykke ]
@@ -148,16 +151,21 @@ update msg model =
                                 }
                             )
 
+                antallPåRad : Int
                 antallPåRad =
                     if (riktig) then
                         model.riktigePåRad + 1
                     else
                         0
+
+                highscore =
+                    max antallPåRad model.highscore
             in
                 { model
                     | forrigeRegnestykke = forrigeRegnestykke
                     , regnestykke = RemoteData.Loading
                     , riktigePåRad = antallPåRad
+                    , highscore = highscore
                 }
                     ! [ hentRegnestykke ]
 
@@ -215,12 +223,18 @@ viewInnlogget model =
                 [ text <| "Auda. Her skjedde det noe galt: " ++ e ]
 
             RemoteData.Success regnestykke ->
-                [ viewRiktigePåRad model.riktigePåRad
+                [ viewHighscore model.highscore
+                , viewRiktigePåRad model.riktigePåRad
                 , viewForrigeRegnestykke model.forrigeRegnestykke
                 , viewRegnestykke regnestykke
                 ]
         )
 
+viewHighscore : Int -> Html Msg
+viewHighscore highscore =
+    p []
+        [ text ("Highscore: " ++ (toString highscore))
+        ]
 
 viewForrigeRegnestykke : Maybe BesvartRegnestykke -> Html Msg
 viewForrigeRegnestykke forrigeRegnestykke =

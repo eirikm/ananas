@@ -2,7 +2,7 @@ module App exposing (..)
 
 import Helpers exposing (focus, onEnter)
 import Html exposing (Html, button, div, h1, img, input, p, text)
-import Html.Attributes exposing (autofocus, id)
+import Html.Attributes exposing (autofocus, id, type_)
 import Html.Events exposing (keyCode, on, onClick, onInput, onSubmit)
 import Http
 import HttpBuilder
@@ -13,9 +13,17 @@ import RemoteData exposing (RemoteData)
 type alias Model =
     { username : String
     , usernameSubmitted : Bool
+    , forrigeRegnestykke : Maybe BesvartRegnestykke
     , regnestykke : RemoteData String Regnestykke
+    , riktigePåRad : Int
     , svar : String
-    , melding : Maybe String
+    }
+
+
+type alias BesvartRegnestykke =
+    { regnestykke : Regnestykke
+    , svarFraBruker : String
+    , korrekt : Bool
     }
 
 
@@ -23,9 +31,10 @@ init : String -> ( Model, Cmd Msg )
 init path =
     { username = ""
     , usernameSubmitted = False
+    , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
+    , riktigePåRad = 0
     , svar = ""
-    , melding = Nothing
     }
         ! []
 
@@ -34,11 +43,12 @@ mockInit : String -> ( Model, Cmd Msg )
 mockInit path =
     { username = "spiderboy"
     , usernameSubmitted = True
+    , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
+    , riktigePåRad = 0
     , svar = ""
-    , melding = Nothing
     }
-        ! []
+        ! [ hentRegnestykke ]
 
 
 type alias Regnestykke =
@@ -111,14 +121,50 @@ update msg model =
                 regnestykke =
                     model.regnestykke
                         |> RemoteData.toMaybe
+
+                fasit : Maybe Int
+                fasit =
+                    regnestykke
+                        |> Maybe.map regn
+
+                konvertertSvar : Maybe Int
+                konvertertSvar =
+                    String.toInt model.svar
+                        |> Result.toMaybe
+
+                riktig : Bool
+                riktig =
+                    Maybe.map2 (==) fasit konvertertSvar
+                        |> Maybe.withDefault False
+
+                forrigeRegnestykke : Maybe BesvartRegnestykke
+                forrigeRegnestykke =
+                    regnestykke
+                        |> Maybe.map
+                            (\r ->
+                                { regnestykke = r
+                                , svarFraBruker = model.svar
+                                , korrekt = riktig
+                                }
+                            )
+
+                antallPåRad =
+                    if (riktig) then
+                        model.riktigePåRad + 1
+                    else
+                        0
             in
                 { model
-                    | regnestykke = RemoteData.Loading
-                    , melding =
-                        regnestykke
-                            |> Maybe.andThen (rettSvar model.svar)
+                    | forrigeRegnestykke = forrigeRegnestykke
+                    , regnestykke = RemoteData.Loading
+                    , riktigePåRad = antallPåRad
                 }
                     ! [ hentRegnestykke ]
+
+
+regn : Regnestykke -> Int
+regn regnestykke =
+    regnestykke.a + regnestykke.b
 
 
 rettSvar : String -> Regnestykke -> Maybe String
@@ -131,20 +177,12 @@ rettSvar svar regnestykke =
     in
         case konvertertSvar of
             Just i ->
-                let
-                    riktigSvar =
-                        regnestykke.a + regnestykke.b
-                        |> Debug.log "riktigSvar"
-
-                    fjon = Debug.log "svar fra bruker: " i
-                    riktig = i == riktigSvar
-                in
-                    Just
-                        (if (i == riktigSvar) then
-                            "Riktig!"
-                         else
-                            "Det var nok feil, men du skal få et nytt regnestykke allikevel"
-                        )
+                Just
+                    (if (i == (regn regnestykke)) then
+                        "Riktig!"
+                     else
+                        "Det var nok feil, men du skal få et nytt regnestykke allikevel"
+                    )
 
             Nothing ->
                 Just "Det du skrev er ikke et tall engang!"
@@ -171,27 +209,62 @@ viewInnlogget model =
                 ]
 
             RemoteData.Loading ->
-                [ text "venter på regnestykke" ]
+                [ text "..." ]
 
             RemoteData.Failure e ->
                 [ text <| "Auda. Her skjedde det noe galt: " ++ e ]
 
             RemoteData.Success regnestykke ->
-                [ viewRegnestykke model.melding regnestykke ]
+                [ viewRiktigePåRad model.riktigePåRad
+                , viewForrigeRegnestykke model.forrigeRegnestykke
+                , viewRegnestykke regnestykke
+                ]
         )
 
 
-viewRegnestykke : Maybe String -> Regnestykke -> Html Msg
-viewRegnestykke melding regnestykke =
-    div []
-        [ p []
-            [ melding
-                |> Maybe.withDefault ""
-                |> text
+viewForrigeRegnestykke : Maybe BesvartRegnestykke -> Html Msg
+viewForrigeRegnestykke forrigeRegnestykke =
+    let
+        viewBesvartRegnestykke : BesvartRegnestykke -> Html Msg
+        viewBesvartRegnestykke besvartRegnestykke =
+            text
+                ((toString besvartRegnestykke.regnestykke.a)
+                    ++ "+"
+                    ++ (toString besvartRegnestykke.regnestykke.b)
+                    ++ "="
+                    ++ besvartRegnestykke.svarFraBruker
+                    ++ " "
+                    ++ if (besvartRegnestykke.korrekt) then
+                        "Riktig"
+                       else
+                        "Feil"
+                )
+    in
+        div []
+            [ forrigeRegnestykke
+                |> Maybe.map viewBesvartRegnestykke
+                |> Maybe.withDefault (text "")
             ]
-        , p [] [ text <| regnestykkeToString regnestykke ]
+
+
+viewRiktigePåRad : Int -> Html Msg
+viewRiktigePåRad påRad =
+    div []
+        [ text <|
+            case påRad of
+                0 -> ""
+                1 -> ""
+                _ -> "Du har svart " ++ (toString påRad) ++ " riktige på rad."
+        ]
+
+
+viewRegnestykke : Regnestykke -> Html Msg
+viewRegnestykke regnestykke =
+    div []
+        [ p [] [ text <| regnestykkeToString regnestykke ]
         , input
             [ id "svar"
+            , type_ "number"
             , onInput SvarChanged
             , onEnter SvarSubmitted
             , autofocus True

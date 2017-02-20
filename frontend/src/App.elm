@@ -96,7 +96,7 @@ hentRegnestykke username =
         encoder =
             Encode.object [ ( "id", Encode.string username ) ]
     in
-        HttpBuilder.post "http://localhost:1337/pluss"
+        HttpBuilder.post "/pluss"
             |> HttpBuilder.withJsonBody encoder
             |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
             |> HttpBuilder.send handleMottattMattestykke
@@ -111,7 +111,7 @@ sendSvar username svar =
                 , ( "svar", Encode.string svar )
                 ]
     in
-        HttpBuilder.post "http://localhost:1337/pluss/svar"
+        HttpBuilder.post "/pluss/svar"
             |> HttpBuilder.withJsonBody encoder
             |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
             |> HttpBuilder.send handleMottattMattestykke

@@ -7,6 +7,7 @@ import Html.Events exposing (keyCode, on, onClick, onInput, onSubmit)
 import Http
 import HttpBuilder
 import Json.Decode as Decode exposing (at)
+import Json.Encode as Encode
 import RemoteData exposing (RemoteData)
 
 
@@ -51,7 +52,7 @@ mockInit path =
     , highscore = 0
     , svar = ""
     }
-        ! [ hentRegnestykke ]
+        ! [ (hentRegnestykke "spiderboy") ]
 
 
 type alias Regnestykke =
@@ -89,11 +90,31 @@ regnestykkeDecoder =
         (at [ "b" ] Decode.int)
 
 
-hentRegnestykke : Cmd Msg
-hentRegnestykke =
-    HttpBuilder.get "http://localhost:1337/pluss"
-        |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
-        |> HttpBuilder.send handleMottattMattestykke
+hentRegnestykke : String -> Cmd Msg
+hentRegnestykke username =
+    let
+        encoder =
+            Encode.object [ ( "id", Encode.string username ) ]
+    in
+        HttpBuilder.post "http://localhost:1337/pluss"
+            |> HttpBuilder.withJsonBody encoder
+            |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
+            |> HttpBuilder.send handleMottattMattestykke
+
+
+sendSvar : String -> String -> Cmd Msg
+sendSvar username svar =
+    let
+        encoder =
+            Encode.object
+                [ ( "id", Encode.string username )
+                , ( "svar", Encode.string svar )
+                ]
+    in
+        HttpBuilder.post "http://localhost:1337/pluss/svar"
+            |> HttpBuilder.withJsonBody encoder
+            |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
+            |> HttpBuilder.send handleMottattMattestykke
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -109,7 +130,7 @@ update msg model =
             { model | usernameSubmitted = True } ! []
 
         HentRegnestykke ->
-            { model | regnestykke = RemoteData.Loading } ! [ hentRegnestykke ]
+            { model | regnestykke = RemoteData.Loading } ! [ hentRegnestykke model.username ]
 
         NyttRegnestykke regnestykke ->
             { model | regnestykke = RemoteData.Success regnestykke }
@@ -161,13 +182,14 @@ update msg model =
                 highscore =
                     max antallPåRad model.highscore
             in
-                { model
-                    | forrigeRegnestykke = forrigeRegnestykke
-                    , regnestykke = RemoteData.Loading
-                    , riktigePåRad = antallPåRad
-                    , highscore = highscore
-                }
-                    ! [ hentRegnestykke ]
+                --                { model
+                --                    | forrigeRegnestykke = forrigeRegnestykke
+                --                    , regnestykke = RemoteData.Loading
+                --                    , riktigePåRad = antallPåRad
+                --                    , highscore = highscore
+                --                }
+                --                    ! [ hentRegnestykke model.username ]
+                model ! [ sendSvar model.username model.svar ]
 
 
 regn : Regnestykke -> Int
@@ -230,11 +252,13 @@ viewInnlogget model =
                 ]
         )
 
+
 viewHighscore : Int -> Html Msg
 viewHighscore highscore =
     p []
         [ text ("Highscore: " ++ (toString highscore))
         ]
+
 
 viewForrigeRegnestykke : Maybe BesvartRegnestykke -> Html Msg
 viewForrigeRegnestykke forrigeRegnestykke =
@@ -266,9 +290,14 @@ viewRiktigePåRad påRad =
     div []
         [ text <|
             case påRad of
-                0 -> ""
-                1 -> ""
-                _ -> "Du har svart " ++ (toString påRad) ++ " riktige på rad."
+                0 ->
+                    ""
+
+                1 ->
+                    ""
+
+                _ ->
+                    "Du har svart " ++ (toString påRad) ++ " riktige på rad."
         ]
 
 

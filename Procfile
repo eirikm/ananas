@@ -1,0 +1,1 @@
+web: ANANAS_PORT=$PORT backend/target/appassembler/bin/ananas

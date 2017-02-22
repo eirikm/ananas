@@ -2,7 +2,7 @@ module App exposing (..)
 
 import Helpers exposing (focus, onEnter)
 import Html exposing (Html, button, div, h1, img, input, p, text)
-import Html.Attributes exposing (autofocus, id, type_)
+import Html.Attributes exposing (autofocus, id, type_, value)
 import Html.Events exposing (keyCode, on, onClick, onInput, onSubmit)
 import Http
 import HttpBuilder
@@ -24,7 +24,7 @@ type alias Model =
 
 type alias BesvartRegnestykke =
     { regnestykke : Regnestykke
-    , svarFraBruker : String
+    , svarFraBruker : Int
     , korrekt : Bool
     }
 
@@ -55,10 +55,21 @@ mockInit path =
         ! [ (hentRegnestykke "spiderboy") ]
 
 
+baseServerUrl : String
+baseServerUrl =
+    "http://localhost:1337"
+
+
 type alias Regnestykke =
     { a : Int
     , op : String
     , b : Int
+    }
+
+
+type alias NyttRegnestykkeResponse =
+    { forrigeRegnestykke : Maybe BesvartRegnestykke
+    , nyttRegnestykke : Regnestykke
     }
 
 
@@ -69,10 +80,10 @@ type Msg
     | SvarChanged String
     | SvarSubmitted
     | HentRegnestykke
-    | NyttRegnestykke Regnestykke
+    | NyttRegnestykke NyttRegnestykkeResponse
 
 
-handleMottattMattestykke : Result Http.Error Regnestykke -> Msg
+handleMottattMattestykke : Result Http.Error NyttRegnestykkeResponse -> Msg
 handleMottattMattestykke result =
     case result of
         Err error ->
@@ -90,30 +101,45 @@ regnestykkeDecoder =
         (at [ "b" ] Decode.int)
 
 
+besvartRegnestykkeDecode : Decode.Decoder BesvartRegnestykke
+besvartRegnestykkeDecode =
+    Decode.map3 BesvartRegnestykke
+        (at [ "regnestykke" ] regnestykkeDecoder)
+        (at [ "svarFraBruker" ] Decode.int)
+        (at [ "riktig" ] Decode.bool)
+
+
+nyttRegnestykkeResponseDecoder : Decode.Decoder NyttRegnestykkeResponse
+nyttRegnestykkeResponseDecoder =
+    Decode.map2 NyttRegnestykkeResponse
+        (at [ "forrigeRegnestykke" ] (Decode.maybe besvartRegnestykkeDecode))
+        (at [ "nyttRegnestykke" ] regnestykkeDecoder)
+
+
 hentRegnestykke : String -> Cmd Msg
 hentRegnestykke username =
     let
         encoder =
             Encode.object [ ( "id", Encode.string username ) ]
     in
-        HttpBuilder.post "http://localhost:1337/pluss"
+        HttpBuilder.post (baseServerUrl ++ "/pluss")
             |> HttpBuilder.withJsonBody encoder
-            |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
+            |> HttpBuilder.withExpect (Http.expectJson nyttRegnestykkeResponseDecoder)
             |> HttpBuilder.send handleMottattMattestykke
 
 
 sendSvar : String -> String -> Cmd Msg
 sendSvar username svar =
     let
-        encoder =
+        svarRequest =
             Encode.object
                 [ ( "id", Encode.string username )
                 , ( "svar", Encode.string svar )
                 ]
     in
-        HttpBuilder.post "http://localhost:1337/pluss/svar"
-            |> HttpBuilder.withJsonBody encoder
-            |> HttpBuilder.withExpect (Http.expectJson regnestykkeDecoder)
+        HttpBuilder.post (baseServerUrl ++ "/pluss/svar")
+            |> HttpBuilder.withJsonBody svarRequest
+            |> HttpBuilder.withExpect (Http.expectJson nyttRegnestykkeResponseDecoder)
             |> HttpBuilder.send handleMottattMattestykke
 
 
@@ -132,90 +158,30 @@ update msg model =
         HentRegnestykke ->
             { model | regnestykke = RemoteData.Loading } ! [ hentRegnestykke model.username ]
 
-        NyttRegnestykke regnestykke ->
-            { model | regnestykke = RemoteData.Success regnestykke }
-                ! [ focus "svar" NoOp ]
+        NyttRegnestykke nyttRegnestykkeResponse ->
+            let
+                nyttRegnestykke =
+                    nyttRegnestykkeResponse.nyttRegnestykke
+
+                besvartRegnestykke =
+                    nyttRegnestykkeResponse.forrigeRegnestykke
+                    |> Maybe.map (\r ->
+                        { regnestykke = r.regnestykke
+                        , svarFraBruker = r.svarFraBruker
+                        , korrekt = r.korrekt
+                        }
+                    )
+            in
+                { model |
+                    forrigeRegnestykke = besvartRegnestykke
+                    , regnestykke = RemoteData.Success nyttRegnestykke }
+                    ! [ focus "svar" NoOp ]
 
         SvarChanged input ->
             { model | svar = input } ! []
 
         SvarSubmitted ->
-            let
-                regnestykke : Maybe Regnestykke
-                regnestykke =
-                    model.regnestykke
-                        |> RemoteData.toMaybe
-
-                fasit : Maybe Int
-                fasit =
-                    regnestykke
-                        |> Maybe.map regn
-
-                konvertertSvar : Maybe Int
-                konvertertSvar =
-                    String.toInt model.svar
-                        |> Result.toMaybe
-
-                riktig : Bool
-                riktig =
-                    Maybe.map2 (==) fasit konvertertSvar
-                        |> Maybe.withDefault False
-
-                forrigeRegnestykke : Maybe BesvartRegnestykke
-                forrigeRegnestykke =
-                    regnestykke
-                        |> Maybe.map
-                            (\r ->
-                                { regnestykke = r
-                                , svarFraBruker = model.svar
-                                , korrekt = riktig
-                                }
-                            )
-
-                antallPåRad : Int
-                antallPåRad =
-                    if (riktig) then
-                        model.riktigePåRad + 1
-                    else
-                        0
-
-                highscore =
-                    max antallPåRad model.highscore
-            in
-                --                { model
-                --                    | forrigeRegnestykke = forrigeRegnestykke
-                --                    , regnestykke = RemoteData.Loading
-                --                    , riktigePåRad = antallPåRad
-                --                    , highscore = highscore
-                --                }
-                --                    ! [ hentRegnestykke model.username ]
-                model ! [ sendSvar model.username model.svar ]
-
-
-regn : Regnestykke -> Int
-regn regnestykke =
-    regnestykke.a + regnestykke.b
-
-
-rettSvar : String -> Regnestykke -> Maybe String
-rettSvar svar regnestykke =
-    let
-        konvertertSvar : Maybe Int
-        konvertertSvar =
-            String.toInt svar
-                |> Result.toMaybe
-    in
-        case konvertertSvar of
-            Just i ->
-                Just
-                    (if (i == (regn regnestykke)) then
-                        "Riktig!"
-                     else
-                        "Det var nok feil, men du skal få et nytt regnestykke allikevel"
-                    )
-
-            Nothing ->
-                Just "Det du skrev er ikke et tall engang!"
+            { model | svar = "" } ! [ sendSvar model.username model.svar ]
 
 
 view : Model -> Html Msg
@@ -245,10 +211,11 @@ viewInnlogget model =
                 [ text <| "Auda. Her skjedde det noe galt: " ++ e ]
 
             RemoteData.Success regnestykke ->
-                [ viewHighscore model.highscore
-                , viewRiktigePåRad model.riktigePåRad
+                [
+--                viewHighscore model.highscore,
+                viewRiktigePåRad model.riktigePåRad
                 , viewForrigeRegnestykke model.forrigeRegnestykke
-                , viewRegnestykke regnestykke
+                , viewRegnestykke regnestykke model.svar
                 ]
         )
 
@@ -270,7 +237,7 @@ viewForrigeRegnestykke forrigeRegnestykke =
                     ++ "+"
                     ++ (toString besvartRegnestykke.regnestykke.b)
                     ++ "="
-                    ++ besvartRegnestykke.svarFraBruker
+                    ++ (toString besvartRegnestykke.svarFraBruker)
                     ++ " "
                     ++ if (besvartRegnestykke.korrekt) then
                         "Riktig"
@@ -301,8 +268,8 @@ viewRiktigePåRad påRad =
         ]
 
 
-viewRegnestykke : Regnestykke -> Html Msg
-viewRegnestykke regnestykke =
+viewRegnestykke : Regnestykke -> String -> Html Msg
+viewRegnestykke regnestykke svar =
     div []
         [ p [] [ text <| regnestykkeToString regnestykke ]
         , input
@@ -311,6 +278,7 @@ viewRegnestykke regnestykke =
             , onInput SvarChanged
             , onEnter SvarSubmitted
             , autofocus True
+            , value svar
             ]
             []
         ]

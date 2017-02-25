@@ -16,8 +16,7 @@ type alias Model =
     , usernameSubmitted : Bool
     , forrigeRegnestykke : Maybe BesvartRegnestykke
     , regnestykke : RemoteData String Regnestykke
-    , riktigePåRad : Int
-    , highscore : Int
+    , score : Score
     , svar : String
     }
 
@@ -35,8 +34,7 @@ init path =
     , usernameSubmitted = False
     , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
-    , riktigePåRad = 0
-    , highscore = 0
+    , score = Score 0 0
     , svar = ""
     }
         ! []
@@ -48,8 +46,7 @@ mockInit path =
     , usernameSubmitted = True
     , forrigeRegnestykke = Nothing
     , regnestykke = RemoteData.NotAsked
-    , riktigePåRad = 0
-    , highscore = 0
+    , score = Score 0 0
     , svar = ""
     }
         ! [ (hentRegnestykke "spiderboy") ]
@@ -70,6 +67,7 @@ type alias Regnestykke =
 type alias NyttRegnestykkeResponse =
     { forrigeRegnestykke : Maybe BesvartRegnestykke
     , nyttRegnestykke : Regnestykke
+    , score : Score
     }
 
 
@@ -93,6 +91,19 @@ handleMottattMattestykke result =
             NyttRegnestykke regnestykke
 
 
+type alias Score =
+    { current : Int
+    , highscore : Int
+    }
+
+
+scoreDecoder : Decode.Decoder Score
+scoreDecoder =
+    Decode.map2 Score
+        (at [ "current" ] Decode.int)
+        (at [ "highscore" ] Decode.int)
+
+
 regnestykkeDecoder : Decode.Decoder Regnestykke
 regnestykkeDecoder =
     Decode.map3 Regnestykke
@@ -111,9 +122,10 @@ besvartRegnestykkeDecode =
 
 nyttRegnestykkeResponseDecoder : Decode.Decoder NyttRegnestykkeResponse
 nyttRegnestykkeResponseDecoder =
-    Decode.map2 NyttRegnestykkeResponse
+    Decode.map3 NyttRegnestykkeResponse
         (at [ "forrigeRegnestykke" ] (Decode.maybe besvartRegnestykkeDecode))
         (at [ "nyttRegnestykke" ] regnestykkeDecoder)
+        (at [ "score" ] scoreDecoder)
 
 
 hentRegnestykke : String -> Cmd Msg
@@ -165,16 +177,19 @@ update msg model =
 
                 besvartRegnestykke =
                     nyttRegnestykkeResponse.forrigeRegnestykke
-                    |> Maybe.map (\r ->
-                        { regnestykke = r.regnestykke
-                        , svarFraBruker = r.svarFraBruker
-                        , korrekt = r.korrekt
-                        }
-                    )
+                        |> Maybe.map
+                            (\r ->
+                                { regnestykke = r.regnestykke
+                                , svarFraBruker = r.svarFraBruker
+                                , korrekt = r.korrekt
+                                }
+                            )
             in
-                { model |
-                    forrigeRegnestykke = besvartRegnestykke
-                    , regnestykke = RemoteData.Success nyttRegnestykke }
+                { model
+                    | forrigeRegnestykke = besvartRegnestykke
+                    , regnestykke = RemoteData.Success nyttRegnestykke
+                    , score = nyttRegnestykkeResponse.score
+                }
                     ! [ focus "svar" NoOp ]
 
         SvarChanged input ->
@@ -211,9 +226,8 @@ viewInnlogget model =
                 [ text <| "Auda. Her skjedde det noe galt: " ++ e ]
 
             RemoteData.Success regnestykke ->
-                [
---                viewHighscore model.highscore,
-                viewRiktigePåRad model.riktigePåRad
+                [ viewHighscore model.score.highscore
+                , viewRiktigePåRad model.score.current
                 , viewForrigeRegnestykke model.forrigeRegnestykke
                 , viewRegnestykke regnestykke model.svar
                 ]

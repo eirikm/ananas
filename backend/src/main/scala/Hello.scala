@@ -13,7 +13,9 @@ object Hello extends App {
 
   import JsonCodecs._
 
-  val db: mutable.Map[String, Regnestykke] = mutable.Map[String, Regnestykke]()
+  val db: mutable.Map[String, Session] = mutable.Map[String, Session]()
+
+  def initialSession: Session = Session(Score(0,0), List.empty)
 
   val plan = unfiltered.filter.Planify {
     case OPTIONS(Path(Seg("pluss" :: Nil))) =>
@@ -34,13 +36,15 @@ object Hello extends App {
         regnestykkeRequest => {
           val regnestykke = GenererMattestykker.genererRegnestykke(vanskelighetsGrad = 1)
 
-          db(regnestykkeRequest.id) = regnestykke
+          val newSession = initialSession.copy(regnestykker = List(regnestykke))
+          db(regnestykkeRequest.id) = newSession
 
           Ok ~>
             ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
             ResponseString(
               NyttRegnestykkeResponse(
                 regnestykkeRequest.id,
+                newSession.score,
                 None,
                 regnestykke).asJson.spaces2)
         }
@@ -63,18 +67,31 @@ object Hello extends App {
             ResponseString("Could not parse json")
         },
         svarRequest => {
-          val rettetRegnestykke = for {
-            regnestykke <- db.get(svarRequest.id)
+          val session = db.getOrElse(svarRequest.id, initialSession)
+
+          val rettetRegnestykke: Option[RettetRegnestykke] = for {
+            regnestykke <- session.regnestykker.headOption
             fasit = regnestykke.a + regnestykke.b
           } yield {
             RettetRegnestykke(regnestykke, svarRequest.svar, fasit == svarRequest.svar)
           }
 
           val nyttRegnestykke = GenererMattestykker.genererRegnestykke(vanskelighetsGrad = 1)
-          db(svarRequest.id) = nyttRegnestykke
+
+          val newSession: Session = Session(
+            {
+              val poeng = rettetRegnestykke.count(r => r.riktig)
+              val score = session.score.current + poeng
+              Score(score, List(score, session.score.highscore).max)
+            },
+            nyttRegnestykke :: session.regnestykker)
+
+
+          db(svarRequest.id) = newSession
 
           val svarResponse = NyttRegnestykkeResponse(
             svarRequest.id,
+            newSession.score,
             rettetRegnestykke,
             nyttRegnestykke
           )
@@ -116,10 +133,16 @@ object JsonCodecs {
   implicit val regnestykkeRequestDecoder: Decoder[RegnestykkeRequest] = deriveDecoder
   implicit val svarRequestDecoder: Decoder[SvarRequest] = deriveDecoder
 
+  implicit val scoreEncoder: Encoder[Score] = deriveEncoder
   implicit val regnestykkeEncoder: Encoder[Regnestykke] = deriveEncoder
   implicit val forrigeRegnestykkeEncoder: Encoder[RettetRegnestykke] = deriveEncoder
   implicit val svarResponseEncoder: Encoder[NyttRegnestykkeResponse] = deriveEncoder
 }
+
+case class Session(score: Score, regnestykker: List[Regnestykke])
+
+case class Score(current: Int, highscore: Int)
+
 
 case class RegnestykkeRequest(id: String)
 
@@ -128,6 +151,7 @@ case class Regnestykke(a: Int, op: String, b: Int)
 case class SvarRequest(id: String, svar: Int)
 
 case class NyttRegnestykkeResponse(id: String,
+                                   score: Score,
                                    forrigeRegnestykke: Option[RettetRegnestykke],
                                    nyttRegnestykke: Regnestykke)
 

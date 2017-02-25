@@ -35,10 +35,8 @@ mockInit path =
 
 baseServerUrl : String
 baseServerUrl =
-    "http://localhost:1337"
-
-
-
+--    "http://localhost:1337"
+    ""
 
 handleMottattMattestykke : Result Http.Error NyttRegnestykkeResponse -> Msg
 handleMottattMattestykke result =

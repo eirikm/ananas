@@ -18,12 +18,6 @@ object Hello extends App {
   def initialSession: Session = Session(Score(0,0), List.empty)
 
   val plan = unfiltered.filter.Planify {
-    case OPTIONS(Path(Seg("pluss" :: Nil))) =>
-      Ok ~>
-        ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
-        ResponseHeader("Access-Control-Allow-Methods", Set("POST, GET")) ~>
-        ResponseHeader("Access-Control-Allow-Headers", Set("Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With"))
-
     case req@POST(Path(Seg("pluss" :: Nil))) =>
       val body = Body.string(req)
 
@@ -31,7 +25,6 @@ object Hello extends App {
       decodedRegnestykkeRequest.fold(
         e =>
           BadRequest ~>
-            ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
             ResponseString("Could not parse json"),
         regnestykkeRequest => {
           val regnestykke = GenererMattestykker.genererRegnestykke(vanskelighetsGrad = 1)
@@ -40,7 +33,6 @@ object Hello extends App {
           db(regnestykkeRequest.id) = newSession
 
           Ok ~>
-            ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
             ResponseString(
               NyttRegnestykkeResponse(
                 regnestykkeRequest.id,
@@ -50,12 +42,6 @@ object Hello extends App {
         }
       )
 
-    case OPTIONS(Path(Seg("pluss" :: "svar" :: Nil))) =>
-      Ok ~>
-        ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
-        ResponseHeader("Access-Control-Allow-Methods", Set("POST, GET")) ~>
-        ResponseHeader("Access-Control-Allow-Headers", Set("Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With"))
-
     case req@POST(Path(Seg("pluss" :: "svar" :: Nil))) =>
       val body = Body.string(req)
 
@@ -63,7 +49,6 @@ object Hello extends App {
         error => {
           println(error)
           BadRequest ~>
-            ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
             ResponseString("Could not parse json")
         },
         svarRequest => {
@@ -99,7 +84,6 @@ object Hello extends App {
           println(svarResponse)
 
           Ok ~>
-            ResponseHeader("Access-Control-Allow-Origin", Set("*")) ~>
             ResponseString(svarResponse.asJson.spaces2)
         }
       )

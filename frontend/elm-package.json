@@ -15,5 +15,6 @@
         "krisajenkins/remotedata": "4.2.1 <= v < 5.0.0",
         "lukewestby/elm-http-builder": "5.0.0 <= v < 6.0.0"
     },
+    "proxy": "http://localhost:1337",
     "elm-version": "0.18.0 <= v < 0.19.0"
 }
